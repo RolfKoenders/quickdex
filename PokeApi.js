@@ -58,13 +58,29 @@ function namesOf(refs) {
   return names
 }
 
+// The same response damage relations come from also lists every member of
+// this type (body.pokemon: [{pokemon: {name, url}, slot}, ...]) — extracted
+// here too so a weakness-chart fetch and a browse-by-type fetch share one
+// request instead of hitting this endpoint twice.
+function membersOf(rawMembers) {
+  var names = []
+  var list = Array.isArray(rawMembers) ? rawMembers : []
+  for (var i = 0; i < list.length; i++) {
+    if (list[i] && list[i].pokemon && typeof list[i].pokemon.name === "string") {
+      names.push(list[i].pokemon.name)
+    }
+  }
+  return names
+}
+
 function fetchType(name, onDone, onError) {
   request(BASE_URL + "/type/" + encodeURIComponent(String(name)), function(body) {
     var relations = body.damage_relations || {}
     onDone({
       double_damage_from: namesOf(relations.double_damage_from),
       half_damage_from: namesOf(relations.half_damage_from),
-      no_damage_from: namesOf(relations.no_damage_from)
+      no_damage_from: namesOf(relations.no_damage_from),
+      members: membersOf(body.pokemon)
     })
   }, onError)
 }

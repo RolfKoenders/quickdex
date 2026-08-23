@@ -222,16 +222,18 @@ QtObject {
   // Fetches only the types not already cached, then merges and writes the
   // whole chart back at once — never a partial read-modify-write, which
   // could otherwise race two overlapping lookups and silently drop a key.
-  function ensureTypesLoaded(types, onReady) {
+  // onError is optional; existing callers that don't pass one keep their
+  // current behavior of just never calling onReady on a failed fetch.
+  function ensureTypesLoaded(types, onReady, onError) {
     var missing = []
     for (var i = 0; i < types.length; i++) {
       if (!root.typeChart[types[i]]) missing.push(types[i])
     }
     if (missing.length === 0) { onReady(); return }
-    root.fetchMissingTypes(missing, onReady)
+    root.fetchMissingTypes(missing, onReady, onError)
   }
 
-  function fetchMissingTypes(missing, onReady) {
+  function fetchMissingTypes(missing, onReady, onError) {
     var remaining = missing.length
     var merged = {}
     var hadError = false
@@ -242,12 +244,14 @@ QtObject {
         if (remaining === 0) {
           root.applyTypeChartMerge(merged)
           if (!hadError) onReady()
+          else if (onError) onError()
         }
       }, function() {
         hadError = true
         remaining--
         if (remaining === 0) {
           root.applyTypeChartMerge(merged)
+          if (onError) onError()
         }
       })
     }
@@ -265,6 +269,37 @@ QtObject {
     for (var name in newEntries) merged[name] = newEntries[name]
     root.typeChart = merged
     root.typesFile.setText(JSON.stringify(merged))
+  }
+
+  // ------------------------------------------------------------ browse by type
+
+  property string browseType: ""
+  // idle | loading | error | ready
+  property string browseTypePhase: "idle"
+
+  readonly property var browseTypeResults: root.browseType && root.typeChart[root.browseType]
+    ? Recents.resolveEntries(root.typeChart[root.browseType].members, root.cachedEntries) : []
+
+  // Order matters here: root.query is live-bound to the search field, so
+  // clearing it fires the field's onTextChanged, which (to handle the user
+  // typing their way out of browse mode) also calls clearBrowseType(). That
+  // must happen before browseType is actually set below, or it would wipe
+  // out the very browse-mode-entry this function is in the middle of.
+  function startBrowseType(typeName) {
+    root.collapse()
+    root.query = ""
+    root.browseType = typeName
+    root.browseTypePhase = "loading"
+    root.ensureTypesLoaded([typeName], function() {
+      root.browseTypePhase = "ready"
+    }, function() {
+      root.browseTypePhase = "error"
+    })
+  }
+
+  function clearBrowseType() {
+    root.browseType = ""
+    root.browseTypePhase = "idle"
   }
 
   // ------------------------------------------------------------ detail cache

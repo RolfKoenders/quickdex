@@ -10,11 +10,22 @@ Rectangle {
   required property string typeName
   property string family: Style.font.family
   property real fontSize: Style.font.caption
+  property bool clickable: false
+
+  signal activated()
 
   radius: Style.cornerRadius
   color: TypeColors.colorFor(typeName)
   width: label.implicitWidth + Style.spacing.md * 2
   height: label.implicitHeight + Style.spacing.xxs * 2
+
+  MouseArea {
+    anchors.fill: parent
+    enabled: badge.clickable
+    hoverEnabled: badge.clickable
+    cursorShape: badge.clickable ? Qt.PointingHandCursor : Qt.ArrowCursor
+    onClicked: badge.activated()
+  }
 
   Text {
     id: label

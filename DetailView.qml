@@ -13,6 +13,7 @@ Item {
   property QtObject bar: null
 
   signal evolutionJumpRequested(string name, string label)
+  signal typeActivated(string typeName)
 
   readonly property var detail: dex ? dex.detail : null
   readonly property string phase: dex ? dex.detailPhase : "idle"
@@ -206,6 +207,8 @@ Item {
                 required property string modelData
                 typeName: modelData
                 family: view.family
+                clickable: true
+                onActivated: view.typeActivated(modelData)
               }
             }
           }
@@ -521,6 +524,8 @@ Item {
                   required property string modelData
                   typeName: modelData
                   family: view.family
+                  clickable: true
+                  onActivated: view.typeActivated(modelData)
                 }
               }
             }

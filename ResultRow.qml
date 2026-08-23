@@ -21,6 +21,7 @@ CursorSurface {
   signal cursorRequested()
   signal expandToggled()
   signal evolutionJumpRequested(string name, string label)
+  signal typeActivated(string typeName)
 
   readonly property color fg: bar ? bar.foreground : Color.foreground
   readonly property string family: bar ? bar.fontFamily : Style.font.family
@@ -114,6 +115,7 @@ CursorSurface {
         dex: row.dex
         bar: row.bar
         onEvolutionJumpRequested: function(name, label) { row.evolutionJumpRequested(name, label) }
+        onTypeActivated: function(typeName) { row.typeActivated(typeName) }
       }
     }
   }
