@@ -9,6 +9,7 @@ import "PokeApi.js" as PokeApi
 import "Recents.js" as Recents
 import "Evolution.js" as Evolution
 import "Shiny.js" as Shiny
+import "Favorites.js" as Favorites
 
 // Owner of the search index, type chart, and per-Pokemon detail: cache,
 // fetch, and derived state. Panel.qml owns keyboard/UI concerns only.
@@ -20,6 +21,7 @@ QtObject {
   readonly property string indexPath: cacheDir + "/index.json"
   readonly property string typesPath: cacheDir + "/types.json"
   readonly property string recentsPath: cacheDir + "/recents.json"
+  readonly property string favoritesPath: cacheDir + "/favorites.json"
   readonly property string evolutionCacheDir: cacheDir + "/evolution"
 
   // ------------------------------------------------------------ search
@@ -58,6 +60,44 @@ QtObject {
     try { parsed = JSON.parse(text) } catch (err) { parsed = null }
     if (parsed && CacheValidation.isValidRecentsShape(parsed)) {
       root.recentSlugs = parsed.slugs
+    }
+  }
+
+  // ------------------------------------------------------------ favorites
+
+  // Explicit add/remove, not an automatic MRU stack like recents — no cap,
+  // and nothing ever re-bumps an existing entry.
+  property var favoriteSlugs: []
+
+  readonly property var favoriteResults: Recents.resolveEntries(root.favoriteSlugs, root.cachedEntries)
+
+  function toggleFavorite(slug) {
+    root.favoriteSlugs = Favorites.isFavorite(root.favoriteSlugs, slug)
+      ? Favorites.remove(root.favoriteSlugs, slug)
+      : Favorites.add(root.favoriteSlugs, slug)
+    root.favoritesFile.setText(JSON.stringify({ slugs: root.favoriteSlugs }))
+  }
+
+  function isFavoriteSlug(slug) {
+    return Favorites.isFavorite(root.favoriteSlugs, slug)
+  }
+
+  // Same on-disk shape as recents.json ({slugs: [...]}), so this reuses
+  // isValidRecentsShape as-is rather than a near-duplicate validator.
+  property FileView favoritesFile: FileView {
+    path: root.favoritesPath
+    watchChanges: false
+    printErrors: false
+    atomicWrites: true
+    onLoaded: root.onFavoritesFileLoaded(text())
+    onLoadFailed: {}
+  }
+
+  function onFavoritesFileLoaded(text) {
+    var parsed = null
+    try { parsed = JSON.parse(text) } catch (err) { parsed = null }
+    if (parsed && CacheValidation.isValidRecentsShape(parsed)) {
+      root.favoriteSlugs = parsed.slugs
     }
   }
 

@@ -52,11 +52,12 @@ omarchy restart shell
   pieces, not full rows — a colored type chip and one sprite+label+
   condition node in an evolution chain strip, respectively.
 - `TypeMatchups.js`, `IndexSearch.js`, `PokemonDetail.js`,
-  `CacheValidation.js`, `Recents.js`, `Evolution.js`, `Shiny.js`: pure
-  `.pragma library` modules, no QML types, no side effects, no
-  Node-only APIs. Each is directly unit-tested by loading it under
-  plain Node after stripping the pragma line (see `tests/test_*.js`).
-  Prefer extending these over adding logic to `Dex.qml`.
+  `CacheValidation.js`, `Recents.js`, `Evolution.js`, `Shiny.js`,
+  `Favorites.js`: pure `.pragma library` modules, no QML types, no
+  side effects, no Node-only APIs. Each is directly unit-tested by
+  loading it under plain Node after stripping the pragma line (see
+  `tests/test_*.js`). Prefer extending these over adding logic to
+  `Dex.qml`.
 - `PokeApi.js`: thin, dumb `XMLHttpRequest` transport. Deliberately has no
   caching/validation/curation logic of its own. `Dex.qml` is the only
   caller and owns everything above this layer.
@@ -106,6 +107,7 @@ node tests/test_cache_validation.js
 node tests/test_recents.js
 node tests/test_evolution.js
 node tests/test_shiny.js
+node tests/test_favorites.js
 python3 tests/test_qml_style.py
 ```
 

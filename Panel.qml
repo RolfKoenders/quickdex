@@ -16,19 +16,31 @@ Panel {
   property int cursorIndex: 0
   property bool cursorActive: false
 
-  // Tab peeks at Recents without losing whatever's typed; typing again (see
-  // searchField.onTextChanged) drops back out. Not a multi-stop cycle, just
-  // a toggle, so Tab and Shift+Tab both flip it the same way.
-  property bool recentsForced: false
-  readonly property bool showRecents: recentsForced || dex.query.length === 0
-  readonly property var activeResults: showRecents ? dex.recentResults : dex.results
+  // Tab cycles Search -> Recents -> Favorites -> Search without losing
+  // whatever's typed; typing again (see searchField.onTextChanged) drops
+  // back to plain search. Both Tab and Shift+Tab step the same direction
+  // through the cycle, matching how this was a plain two-state toggle
+  // before Favorites existed.
+  property string secondaryView: "none" // "none" | "recents" | "favorites"
+  readonly property bool showRecents: secondaryView === "recents"
+    || (secondaryView === "none" && dex.query.length === 0)
+  readonly property bool showFavorites: secondaryView === "favorites"
+  readonly property var activeResults: showFavorites ? dex.favoriteResults
+    : (showRecents ? dex.recentResults : dex.results)
 
   readonly property int rowCount: activeResults.length
+
+  readonly property var secondaryViewOrder: ["none", "recents", "favorites"]
+
+  function nextSecondaryView() {
+    var idx = root.secondaryViewOrder.indexOf(root.secondaryView)
+    return root.secondaryViewOrder[(idx + 1) % root.secondaryViewOrder.length]
+  }
 
   onOpenedChanged: if (!opened) {
     cursorActive = false
     cursorIndex = 0
-    recentsForced = false
+    secondaryView = "none"
     dex.query = ""
     dex.collapse()
   }
@@ -183,7 +195,7 @@ Panel {
       }
       onActivateRequested: root.expandCursor()
       onTabRequested: function(direction) {
-        root.recentsForced = !root.recentsForced
+        root.secondaryView = root.nextSecondaryView()
         root.cursorActive = false
         root.cursorIndex = 0
       }
@@ -220,7 +232,7 @@ Panel {
             root.dex.query = text
             root.cursorIndex = 0
             root.cursorActive = false
-            root.recentsForced = false
+            root.secondaryView = "none"
           }
           Keys.onDownPressed: function(event) {
             if (root.dex.expandedSlug) root.scrollDetail(1)
@@ -288,10 +300,29 @@ Panel {
           font.pixelSize: Style.font.bodySmall
         }
 
+        Text {
+          textFormat: Text.PlainText
+          width: parent.width
+          visible: root.showFavorites && root.activeResults.length === 0
+          text: "No favorites yet. Open a Pokémon and tap the star to add one."
+          wrapMode: Text.WordWrap
+          color: root.dim
+          font.family: root.family
+          font.pixelSize: Style.font.bodySmall
+        }
+
         PanelSectionHeader {
           width: parent.width
           visible: root.showRecents && root.activeResults.length > 0
           text: "RECENT"
+          foreground: root.fg
+          fontFamily: root.family
+        }
+
+        PanelSectionHeader {
+          width: parent.width
+          visible: root.showFavorites
+          text: "FAVORITES"
           foreground: root.fg
           fontFamily: root.family
         }
