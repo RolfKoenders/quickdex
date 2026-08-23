@@ -153,15 +153,40 @@ Item {
           width: parent.width - artworkFrame.width - Style.spacing.xl
           spacing: Style.spacing.xs
 
-          Text {
-            textFormat: Text.PlainText
+          Row {
             width: parent.width
-            text: view.detail ? view.detail.label : ""
-            color: view.fg
-            font.family: view.family
-            font.pixelSize: Style.font.heading
-            font.bold: true
-            elide: Text.ElideRight
+            spacing: Style.spacing.xs
+
+            Text {
+              id: nameText
+              textFormat: Text.PlainText
+              width: parent.width - favoriteToggle.width - Style.spacing.xs
+              text: view.detail ? view.detail.label : ""
+              color: view.fg
+              font.family: view.family
+              font.pixelSize: Style.font.heading
+              font.bold: true
+              elide: Text.ElideRight
+            }
+
+            Text {
+              id: favoriteToggle
+              textFormat: Text.PlainText
+              anchors.verticalCenter: nameText.verticalCenter
+              readonly property bool favorited: (view.dex && view.detail)
+                ? view.dex.isFavoriteSlug(view.dex.expandedSlug) : false
+              text: favorited ? "★" : "☆"
+              color: favorited ? Color.accent : view.dim
+              font.family: view.family
+              font.pixelSize: Style.font.heading
+
+              MouseArea {
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: view.dex.toggleFavorite(view.dex.expandedSlug)
+              }
+            }
           }
 
           Text {
