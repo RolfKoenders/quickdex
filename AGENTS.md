@@ -50,7 +50,9 @@ omarchy restart shell
   currently expanded Pokemon.
 - `TypeBadge.qml`, `EvolutionNode.qml`: small reusable presentational
   pieces, not full rows — a colored type chip and one sprite+label+
-  condition node in an evolution chain strip, respectively.
+  condition node in an evolution chain strip, respectively. Every
+  `TypeBadge` is optionally clickable (`clickable`/`activated()`, same
+  shape as `EvolutionNode`'s) to browse every Pokemon of that type.
 - `TypeMatchups.js`, `IndexSearch.js`, `PokemonDetail.js`,
   `CacheValidation.js`, `Recents.js`, `Evolution.js`, `Shiny.js`,
   `Favorites.js`: pure `.pragma library` modules, no QML types, no

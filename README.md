@@ -28,6 +28,7 @@ With the panel open, type to search. Arrow keys move the highlighted result, or 
 - Official artwork
 - Evolution chain, with each stage a click or arrow-key away
 - Weaknesses and resistances, correctly combined for dual type Pokémon, grouped as Weak x4, Weak x2, Resists x0.5, Resists x0.25, and Immune
+- Click any type badge to browse every Pokémon of that type
 - Recently-viewed Pokémon, reachable with Tab
 - Favorites: star a Pokémon from its detail view to pin it, reachable with Tab
 - A small chance any lookup shows a Pokémon's shiny sprite instead of its normal one — no way to trigger it on purpose

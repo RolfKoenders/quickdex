@@ -22,11 +22,15 @@ Panel {
   // through the cycle, matching how this was a plain two-state toggle
   // before Favorites existed.
   property string secondaryView: "none" // "none" | "recents" | "favorites"
-  readonly property bool showRecents: secondaryView === "recents"
-    || (secondaryView === "none" && dex.query.length === 0)
-  readonly property bool showFavorites: secondaryView === "favorites"
-  readonly property var activeResults: showFavorites ? dex.favoriteResults
-    : (showRecents ? dex.recentResults : dex.results)
+  // Browsing a type (triggered by clicking a type badge, not the Tab cycle)
+  // always overrides whichever of Recents/Favorites is currently selected.
+  readonly property bool showBrowseType: dex.browseType.length > 0
+  readonly property bool showRecents: !showBrowseType && (secondaryView === "recents"
+    || (secondaryView === "none" && dex.query.length === 0))
+  readonly property bool showFavorites: !showBrowseType && secondaryView === "favorites"
+  readonly property var activeResults: showBrowseType ? dex.browseTypeResults
+    : (showFavorites ? dex.favoriteResults
+    : (showRecents ? dex.recentResults : dex.results))
 
   readonly property int rowCount: activeResults.length
 
@@ -43,6 +47,7 @@ Panel {
     secondaryView = "none"
     dex.query = ""
     dex.collapse()
+    dex.clearBrowseType()
   }
 
   // First press just wakes the cursor at index 0; only the next one moves it.
@@ -106,9 +111,11 @@ Panel {
     if (target) root.jumpTo(target.name, target.label)
   }
 
-  // First Escape clears the filter, second Escape closes the popup.
+  // Escape backs out one level at a time: browsing a type first (back to
+  // plain search), then the filter, then finally closes the popup.
   function handleEscape() {
-    if (dex.query.length) dex.query = ""
+    if (dex.browseType.length) dex.clearBrowseType()
+    else if (dex.query.length) dex.query = ""
     else root.close()
   }
 
@@ -233,6 +240,7 @@ Panel {
             root.cursorIndex = 0
             root.cursorActive = false
             root.secondaryView = "none"
+            root.dex.clearBrowseType()
           }
           Keys.onDownPressed: function(event) {
             if (root.dex.expandedSlug) root.scrollDetail(1)
@@ -311,6 +319,38 @@ Panel {
           font.pixelSize: Style.font.bodySmall
         }
 
+        Text {
+          textFormat: Text.PlainText
+          width: parent.width
+          visible: root.showBrowseType && root.dex.browseTypePhase === "loading"
+          text: "Loading…"
+          color: root.dim
+          font.family: root.family
+          font.pixelSize: Style.font.bodySmall
+        }
+
+        Text {
+          textFormat: Text.PlainText
+          width: parent.width
+          visible: root.showBrowseType && root.dex.browseTypePhase === "error"
+          text: "Couldn't reach PokeAPI. Check your connection."
+          wrapMode: Text.WordWrap
+          color: root.dim
+          font.family: root.family
+          font.pixelSize: Style.font.bodySmall
+        }
+
+        Text {
+          textFormat: Text.PlainText
+          width: parent.width
+          visible: root.showBrowseType && root.dex.browseTypePhase === "ready" && root.activeResults.length === 0
+          text: "No Pokémon found for this type."
+          wrapMode: Text.WordWrap
+          color: root.dim
+          font.family: root.family
+          font.pixelSize: Style.font.bodySmall
+        }
+
         PanelSectionHeader {
           width: parent.width
           visible: root.showRecents && root.activeResults.length > 0
@@ -323,6 +363,14 @@ Panel {
           width: parent.width
           visible: root.showFavorites
           text: "FAVORITES"
+          foreground: root.fg
+          fontFamily: root.family
+        }
+
+        PanelSectionHeader {
+          width: parent.width
+          visible: root.showBrowseType && root.activeResults.length > 0
+          text: root.dex.browseType.toUpperCase() + " TYPE"
           foreground: root.fg
           fontFamily: root.family
         }
@@ -364,6 +412,7 @@ Panel {
                 }
                 onExpandToggled: root.dex.selectPokemon(modelData.name)
                 onEvolutionJumpRequested: function(name, label) { root.jumpTo(name, label) }
+                onTypeActivated: function(typeName) { root.dex.startBrowseType(typeName) }
               }
             }
           }

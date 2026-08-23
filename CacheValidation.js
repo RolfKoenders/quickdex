@@ -76,6 +76,7 @@ function isValidTypeChartShape(parsed) {
     if (!isStringArray(relations.double_damage_from)) return false
     if (!isStringArray(relations.half_damage_from)) return false
     if (!isStringArray(relations.no_damage_from)) return false
+    if (!isStringArray(relations.members)) return false
   }
   return true
 }

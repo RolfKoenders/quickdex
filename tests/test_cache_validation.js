@@ -118,13 +118,22 @@ section("isValidRecentsShape", () => {
 
 section("isValidTypeChartShape", () => {
   const valid = { electric: {
-    double_damage_from: ["ground"], half_damage_from: ["electric"], no_damage_from: []
+    double_damage_from: ["ground"], half_damage_from: ["electric"], no_damage_from: [],
+    members: ["pikachu", "raichu"]
   } };
   eq("well-formed single-type chart accepted", CacheValidation.isValidTypeChartShape(valid), true);
   eq("empty chart is technically valid shape (just empty)",
      CacheValidation.isValidTypeChartShape({}), true);
   eq("relation with wrong-typed field rejected",
      CacheValidation.isValidTypeChartShape({ electric: { double_damage_from: "ground" } }), false);
+  eq("missing members rejected (old pre-browse-by-type cache shape)",
+     CacheValidation.isValidTypeChartShape({ electric: {
+       double_damage_from: [], half_damage_from: [], no_damage_from: []
+     } }), false);
+  eq("empty members array accepted (a type with no browsable members yet)",
+     CacheValidation.isValidTypeChartShape({ electric: {
+       double_damage_from: [], half_damage_from: [], no_damage_from: [], members: []
+     } }), true);
   eq("not an object rejected", CacheValidation.isValidTypeChartShape([]), false);
 });
 
