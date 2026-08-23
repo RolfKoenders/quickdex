@@ -6,15 +6,9 @@ Click the pokeball icon, type a name, hit enter to see the full breakdown. Built
 
 > Not affiliated with or endorsed by Nintendo, Game Freak, Creatures Inc., or PokeAPI.
 
-## Screenshots
+## Screenshot
 
-Search as you type:
-
-![Search results](docs/screenshots/search.png)
-
-Full detail view with stats, abilities, and weaknesses:
-
-![Detail view](docs/screenshots/detail-view.png)
+![Quickdex](docs/screenshots/preview.png)
 
 ## Keyboard
 
