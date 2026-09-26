@@ -70,9 +70,10 @@ omarchy restart shell
 
 `Settings.js` normalizes `settings.json` (which `Dex.qml` persists at
 `~/.config/omarchy/quickdex/settings.json`, deliberately outside
-`cache/` so clearing the cache can't delete it). `Keybind.js` builds the
-Hyprland bind lines shown in settings; its `IPC_TARGET` must match
-`Panel.qml`'s `ipcTarget` (a test enforces this). The toggle keybind works
+`cache/` so clearing the cache can't delete it). `Keybind.js` holds the toggle
+command shown in settings (bind examples live only in the README; a test
+keeps them in sync); its `IPC_TARGET` must match `Panel.qml`'s
+`ipcTarget` (a test enforces this). The toggle keybind works
 through the base `Panel`'s IPC handler (`omarchy-shell quickdex toggle`);
 Quickdex never writes Hyprland config itself.
 

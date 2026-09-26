@@ -18,12 +18,6 @@ Column {
 
   spacing: Style.spacing.panelGap
 
-  readonly property var keybindRows: [
-    { title: "Command (try it in a terminal first)", text: Keybind.toggleCommand() },
-    { title: Keybind.LUA_BINDINGS_PATH, text: Keybind.luaBind() },
-    { title: Keybind.CONF_BINDINGS_PATH + " (older Omarchy)", text: Keybind.confBind() }
-  ]
-
   PanelSectionHeader {
     width: parent.width
     text: "KEYBIND"
@@ -34,54 +28,35 @@ Column {
   Text {
     textFormat: Text.PlainText
     width: parent.width
-    text: "Toggle Quickdex from anywhere. Add a bind line to your Hyprland config, "
-      + "change the keys to any free combo, then reload Hyprland."
+    text: "Bind a key to this command in your Hyprland config to toggle Quickdex "
+      + "without clicking the bar icon. Examples are in the README."
     wrapMode: Text.WordWrap
     color: view.dim
     font.family: view.family
     font.pixelSize: Style.font.bodySmall
   }
 
-  Repeater {
-    model: view.keybindRows
-    delegate: Column {
-      required property var modelData
-      width: view.width
-      spacing: Style.spacing.xxs
+  Row {
+    width: parent.width
+    spacing: Style.spacing.xs
 
-      Text {
-        textFormat: Text.PlainText
-        width: parent.width
-        text: modelData.title
-        wrapMode: Text.WrapAnywhere
-        color: view.dim
-        font.family: view.family
-        font.pixelSize: Style.font.caption
-      }
+    Text {
+      textFormat: Text.PlainText
+      width: parent.width - copyButton.width - Style.spacing.xs
+      anchors.verticalCenter: copyButton.verticalCenter
+      text: Keybind.toggleCommand()
+      wrapMode: Text.WrapAnywhere
+      color: view.fg
+      font.family: view.family
+      font.pixelSize: Style.font.bodySmall
+    }
 
-      Row {
-        width: parent.width
-        spacing: Style.spacing.xs
-
-        Text {
-          textFormat: Text.PlainText
-          width: parent.width - copyButton.width - Style.spacing.xs
-          anchors.verticalCenter: copyButton.verticalCenter
-          text: modelData.text
-          wrapMode: Text.WrapAnywhere
-          color: view.fg
-          font.family: view.family
-          font.pixelSize: Style.font.bodySmall
-        }
-
-        SettingsButton {
-          id: copyButton
-          fg: view.fg
-          family: view.family
-          label: view.dex && view.dex.copiedText === modelData.text ? "Copied" : "Copy"
-          onActivated: view.dex.copyToClipboard(modelData.text)
-        }
-      }
+    SettingsButton {
+      id: copyButton
+      fg: view.fg
+      family: view.family
+      label: view.dex && view.dex.copiedText === Keybind.toggleCommand() ? "Copied" : "Copy"
+      onActivated: view.dex.copyToClipboard(Keybind.toggleCommand())
     }
   }
 

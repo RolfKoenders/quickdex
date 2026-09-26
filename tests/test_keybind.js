@@ -45,19 +45,11 @@ section("IPC target stays in sync with Panel.qml", () => {
   eq("Keybind.IPC_TARGET matches it", Keybind.IPC_TARGET, match && match[1]);
 });
 
-section("luaBind", () => {
-  eq("Omarchy Lua syntax", Keybind.luaBind(),
-     'o.bind("SUPER + SHIFT + P", "Quickdex", "omarchy-shell quickdex toggle")');
-});
-
-section("confBind", () => {
-  eq("classic bindd syntax", Keybind.confBind(),
-     "bindd = SUPER SHIFT, P, Quickdex, exec, omarchy-shell quickdex toggle");
-});
-
-section("binding file paths", () => {
-  eq("lua", Keybind.LUA_BINDINGS_PATH, "~/.config/hypr/bindings.lua");
-  eq("conf", Keybind.CONF_BINDINGS_PATH, "~/.config/hypr/bindings.conf");
+section("README documents the bind lines around this command", () => {
+  const readme = fs.readFileSync(path.join(__dirname, "..", "README.md"), "utf8");
+  const command = Keybind.toggleCommand();
+  eq("Lua bind example present", readme.includes(`o.bind("SUPER + SHIFT + P", "Quickdex", "${command}")`), true);
+  eq(".conf bind example present", readme.includes(`bindd = SUPER SHIFT, P, Quickdex, exec, ${command}`), true);
 });
 
 console.log();

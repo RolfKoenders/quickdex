@@ -28,7 +28,7 @@ o.bind("SUPER + SHIFT + P", "Quickdex", "omarchy-shell quickdex toggle")
 bindd = SUPER SHIFT, P, Quickdex, exec, omarchy-shell quickdex toggle
 ```
 
-Change the keys to any free combo. You can test the command first by running `omarchy-shell quickdex toggle` in a terminal. The same lines, with copy buttons, are in Quickdex's settings.
+Change the keys to any free combo. You can test the command first by running `omarchy-shell quickdex toggle` in a terminal. Quickdex's settings view (the cogwheel) shows the command with a copy button.
 
 ## What you get
 
@@ -41,7 +41,7 @@ Change the keys to any free combo. You can test the command first by running `om
 - Click any type badge to browse every Pokémon of that type
 - Recently-viewed Pokémon, reachable with Tab
 - Favorites: star a Pokémon from its detail view to pin it, reachable with Tab
-- A settings view (the cogwheel, top right): keybind helper, whether the panel opens on Recents or Favorites, and buttons to clear recents, favorites, or cached data
+- A settings view (the cogwheel, top right): the toggle command, whether the panel opens on Recents or Favorites, and buttons to clear recents, favorites, or cached data
 - A small chance any lookup shows a Pokémon's shiny sprite instead of its normal one — no way to trigger it on purpose
 
 Covers the full national dex, including forms that actually differ in type (Alolan Vulpix, Mega Charizard X, and so on) as their own searchable entries. Variants that are cosmetic only, or that share the same type as the form they're based on, are left out of search so results stay clean.
