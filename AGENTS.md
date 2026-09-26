@@ -53,9 +53,13 @@ omarchy restart shell
   condition node in an evolution chain strip, respectively. Every
   `TypeBadge` is optionally clickable (`clickable`/`activated()`, same
   shape as `EvolutionNode`'s) to browse every Pokemon of that type.
+- `SettingsView.qml`, `SettingsButton.qml`: the cogwheel settings surface
+  (swapped in for the search UI by `Panel.qml`'s `showSettings`) and its
+  pill button, which has an optional two-step confirm for destructive
+  actions. `SettingsView` only renders and calls into `Dex`.
 - `TypeMatchups.js`, `IndexSearch.js`, `PokemonDetail.js`,
   `CacheValidation.js`, `Recents.js`, `Evolution.js`, `Shiny.js`,
-  `Favorites.js`: pure `.pragma library` modules, no QML types, no
+  `Favorites.js`, `Settings.js`, `Keybind.js`: pure `.pragma library` modules, no QML types, no
   side effects, no Node-only APIs. Each is directly unit-tested by
   loading it under plain Node after stripping the pragma line (see
   `tests/test_*.js`). Prefer extending these over adding logic to
@@ -64,13 +68,22 @@ omarchy restart shell
   caching/validation/curation logic of its own. `Dex.qml` is the only
   caller and owns everything above this layer.
 
+`Settings.js` normalizes `settings.json` (which `Dex.qml` persists at
+`~/.config/omarchy/quickdex/settings.json`, deliberately outside
+`cache/` so clearing the cache can't delete it). `Keybind.js` holds the toggle
+command shown in settings (bind examples live only in the README; a test
+keeps them in sync); its `IPC_TARGET` must match `Panel.qml`'s
+`ipcTarget` (a test enforces this). The toggle keybind works
+through the base `Panel`'s IPC handler (`omarchy-shell quickdex toggle`);
+Quickdex never writes Hyprland config itself.
+
 Keep transport, caching, curation/projection logic, and UI policy
 separate: each concern lives in its own file, not folded into `Dex.qml`
 or `Panel.qml`.
 
 ## Coding conventions
 
-- Keep the four pure JS modules side-effect free and compatible with the
+- Keep the pure JS modules side-effect free and compatible with the
   QML JavaScript engine. Do not add Node-only APIs to production modules.
   The same source runs under both Node (tests) and the real QML engine.
 - When one pure module needs another (e.g. `PokemonDetail` needs
@@ -110,6 +123,8 @@ node tests/test_recents.js
 node tests/test_evolution.js
 node tests/test_shiny.js
 node tests/test_favorites.js
+node tests/test_settings.js
+node tests/test_keybind.js
 python3 tests/test_qml_style.py
 ```
 

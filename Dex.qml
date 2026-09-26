@@ -10,6 +10,7 @@ import "Recents.js" as Recents
 import "Evolution.js" as Evolution
 import "Shiny.js" as Shiny
 import "Favorites.js" as Favorites
+import "Settings.js" as UserSettings
 
 // Owner of the search index, type chart, and per-Pokemon detail: cache,
 // fetch, and derived state. Panel.qml owns keyboard/UI concerns only.
@@ -17,11 +18,14 @@ QtObject {
   id: root
 
   readonly property string home: Quickshell.env("HOME")
-  readonly property string cacheDir: home + "/.config/omarchy/quickdex/cache"
+  readonly property string dataDir: home + "/.config/omarchy/quickdex"
+  readonly property string cacheDir: dataDir + "/cache"
   readonly property string indexPath: cacheDir + "/index.json"
   readonly property string typesPath: cacheDir + "/types.json"
   readonly property string recentsPath: cacheDir + "/recents.json"
   readonly property string favoritesPath: cacheDir + "/favorites.json"
+  // Outside cacheDir on purpose: clearCache() must never delete settings.
+  readonly property string settingsPath: dataDir + "/settings.json"
   readonly property string evolutionCacheDir: cacheDir + "/evolution"
 
   // ------------------------------------------------------------ search
@@ -53,6 +57,11 @@ QtObject {
     onLoaded: root.onRecentsFileLoaded(text())
     // A missing file on first run is normal, not an error — nothing to do.
     onLoadFailed: {}
+  }
+
+  function clearRecents() {
+    root.recentSlugs = []
+    root.recentsFile.setText(JSON.stringify({ slugs: [] }))
   }
 
   function onRecentsFileLoaded(text) {
@@ -93,12 +102,41 @@ QtObject {
     onLoadFailed: {}
   }
 
+  function clearFavorites() {
+    root.favoriteSlugs = []
+    root.favoritesFile.setText(JSON.stringify({ slugs: [] }))
+  }
+
   function onFavoritesFileLoaded(text) {
     var parsed = null
     try { parsed = JSON.parse(text) } catch (err) { parsed = null }
     if (parsed && CacheValidation.isValidRecentsShape(parsed)) {
       root.favoriteSlugs = parsed.slugs
     }
+  }
+
+  // ------------------------------------------------------------ settings
+
+  property var settings: UserSettings.normalize(null)
+
+  function setSetting(key, value) {
+    root.settings = UserSettings.withValue(root.settings, key, value)
+    root.settingsFile.setText(JSON.stringify(root.settings))
+  }
+
+  property FileView settingsFile: FileView {
+    path: root.settingsPath
+    watchChanges: false
+    printErrors: false
+    atomicWrites: true
+    onLoaded: root.onSettingsFileLoaded(text())
+    onLoadFailed: {}
+  }
+
+  function onSettingsFileLoaded(text) {
+    var parsed = null
+    try { parsed = JSON.parse(text) } catch (err) { parsed = null }
+    root.settings = UserSettings.normalize(parsed)
   }
 
   // ------------------------------------------------------------ detail
@@ -469,12 +507,69 @@ QtObject {
     root.shinyArtworkProcess.running = true
   }
 
+  // ------------------------------------------------------------ clipboard
+
+  // Text last copied successfully; cleared shortly after so a "Copied" label
+  // in the UI reverts on its own.
+  property string copiedText: ""
+
+  property string pendingCopyText: ""
+  property Process copyProcess: Process {
+    onExited: function(exitCode) {
+      if (exitCode !== 0) return
+      root.copiedText = root.pendingCopyText
+      copiedResetTimer.restart()
+    }
+  }
+  property Timer copiedResetTimer: Timer {
+    interval: 2000
+    onTriggered: root.copiedText = ""
+  }
+
+  // Argument array, never a shell string: text is displayed config, but it
+  // still must not be interpolated anywhere.
+  function copyToClipboard(text) {
+    if (root.copyProcess.running) return
+    root.pendingCopyText = text
+    root.copyProcess.command = ["wl-copy", text]
+    root.copyProcess.running = true
+  }
+
+  // ------------------------------------------------------------ clear data
+
+  // Drops every cached fetch (index, type chart, per-Pokemon detail, artwork,
+  // evolution chains) but keeps recents, favorites and settings, then
+  // rebuilds the directories and refetches the index so search recovers.
+  function clearCache() {
+    if (root.clearCacheProcess.running || root.recreateCacheDirProcess.running) return
+    root.collapse()
+    root.clearBrowseType()
+    root.typeChart = ({})
+    root.cachedEntries = []
+    root.indexPhase = "loading"
+    root.clearCacheProcess.running = true
+  }
+
+  property Process clearCacheProcess: Process {
+    command: ["rm", "-rf", root.indexPath, root.typesPath,
+              root.cacheDir + "/pokemon", root.evolutionCacheDir]
+    onExited: root.recreateCacheDirProcess.running = true
+  }
+
+  property Process recreateCacheDirProcess: Process {
+    command: root.cacheDirCommand
+    onExited: root.fetchAndCacheIndex()
+  }
+
   // ------------------------------------------------------------ startup
+
+  readonly property var cacheDirCommand:
+    ["mkdir", "-p", root.cacheDir + "/pokemon", root.evolutionCacheDir]
 
   // FileView does not create missing parent directories; this also covers
   // cacheDir itself since mkdir -p creates every missing ancestor.
   property Process cacheDirProcess: Process {
-    command: ["mkdir", "-p", root.cacheDir + "/pokemon", root.evolutionCacheDir]
+    command: root.cacheDirCommand
   }
 
   Component.onCompleted: root.cacheDirProcess.running = true
