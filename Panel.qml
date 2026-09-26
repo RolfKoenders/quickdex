@@ -171,7 +171,6 @@ Panel {
     anchors.fill: parent
     bar: root.bar
     text: root.icon
-    foreground: root.fg
     onPressed: root.toggle()
   }
 
