@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import qs.Ui
 import qs.Commons
+import "Settings.js" as UserSettings
 
 // Bar button plus popup panel. Owns the keyboard cursor and search field;
 // Dex owns the index, cache, and fetch state.
@@ -21,7 +22,10 @@ Panel {
   // back to plain search. Both Tab and Shift+Tab step the same direction
   // through the cycle, matching how this was a plain two-state toggle
   // before Favorites existed.
-  property string secondaryView: "none" // "none" | "recents" | "favorites"
+  // Starts on the user's chosen default view; the binding is replaced by
+  // plain assignments (Tab, close) only after the popup has been used.
+  property string secondaryView: UserSettings.initialSecondaryView(dex.settings) // "none" | "recents" | "favorites"
+  property bool showSettings: false
   // Browsing a type (triggered by clicking a type badge, not the Tab cycle)
   // always overrides whichever of Recents/Favorites is currently selected.
   readonly property bool showBrowseType: dex.browseType.length > 0
@@ -44,7 +48,8 @@ Panel {
   onOpenedChanged: if (!opened) {
     cursorActive = false
     cursorIndex = 0
-    secondaryView = "none"
+    secondaryView = UserSettings.initialSecondaryView(dex.settings)
+    showSettings = false
     dex.query = ""
     dex.collapse()
     dex.clearBrowseType()
@@ -111,10 +116,19 @@ Panel {
     if (target) root.jumpTo(target.name, target.label)
   }
 
-  // Escape backs out one level at a time: browsing a type first (back to
-  // plain search), then the filter, then finally closes the popup.
+  // The search field is hidden while settings are showing, so focus has to be
+  // moved explicitly in both directions or keys would go nowhere.
+  function setSettingsOpen(open) {
+    showSettings = open
+    if (open) keyCatcher.forceActiveFocus()
+    else searchField.forceActiveFocus()
+  }
+
+  // Escape backs out one level at a time: settings first, then browsing a
+  // type (back to plain search), then the filter, then closes the popup.
   function handleEscape() {
-    if (dex.browseType.length) dex.clearBrowseType()
+    if (showSettings) setSettingsOpen(false)
+    else if (dex.browseType.length) dex.clearBrowseType()
     else if (dex.query.length) dex.query = ""
     else root.close()
   }
@@ -207,14 +221,40 @@ Panel {
         root.cursorIndex = 0
       }
 
+      Item {
+        id: settingsToggle
+        z: 1
+        width: Style.space(28)
+        height: Style.space(28)
+        x: parent.width - width
+        y: hero.y + (hero.height - height) / 2
+
+        Text {
+          textFormat: Text.PlainText
+          anchors.centerIn: parent
+          text: "\u2699\uFE0E"
+          color: root.showSettings ? Color.accent : root.dim
+          font.family: root.family
+          font.pixelSize: Style.font.heading
+        }
+
+        MouseArea {
+          anchors.fill: parent
+          hoverEnabled: true
+          cursorShape: Qt.PointingHandCursor
+          onClicked: root.setSettingsOpen(!root.showSettings)
+        }
+      }
+
       Column {
         id: column
         anchors.fill: parent
         spacing: Style.spacing.panelGap
 
         PanelHero {
+          id: hero
           width: parent.width
-          title: "Quickdex"
+          title: root.showSettings ? "Settings" : "Quickdex"
           foreground: root.fg
           fontFamily: root.family
 
@@ -229,193 +269,207 @@ Panel {
 
         PanelSeparator { width: parent.width; foreground: root.fg }
 
-        TextField {
-          id: searchField
+        Column {
+          id: searchContent
           width: parent.width
-          placeholderText: "Search a Pokémon…"
-          foreground: root.fg
-          text: root.dex.query
-          onTextChanged: {
-            root.dex.query = text
-            root.cursorIndex = 0
-            root.cursorActive = false
-            root.secondaryView = "none"
-            root.dex.clearBrowseType()
+          spacing: Style.spacing.panelGap
+          visible: !root.showSettings
+
+          TextField {
+            id: searchField
+            width: parent.width
+            placeholderText: "Search a Pokémon…"
+            foreground: root.fg
+            text: root.dex.query
+            onTextChanged: {
+              root.dex.query = text
+              root.cursorIndex = 0
+              root.cursorActive = false
+              root.secondaryView = "none"
+              root.dex.clearBrowseType()
+            }
+            Keys.onDownPressed: function(event) {
+              if (root.dex.expandedSlug) root.scrollDetail(1)
+              else root.moveCursor(1)
+              event.accepted = true
+            }
+            Keys.onUpPressed: function(event) {
+              if (root.dex.expandedSlug) root.scrollDetail(-1)
+              else root.moveCursor(-1)
+              event.accepted = true
+            }
+            // Unlike Up/Down, Left/Right have a real native meaning here
+            // (moving the text cursor), so only take over once something's
+            // expanded. Keys.onXxxPressed defaults event.accepted to true the
+            // moment a handler exists at all, even one that never touches it —
+            // simply not setting it here still silently blocks the field's
+            // own cursor movement, confirmed live. Must explicitly set it to
+            // false to actually let the event fall through to native handling.
+            Keys.onLeftPressed: function(event) {
+              if (root.dex.expandedSlug) { root.navigateEvolution(-1); event.accepted = true }
+              else event.accepted = false
+            }
+            Keys.onRightPressed: function(event) {
+              if (root.dex.expandedSlug) { root.navigateEvolution(1); event.accepted = true }
+              else event.accepted = false
+            }
+            Keys.onEscapePressed: function(event) { root.handleEscape(); event.accepted = true }
+            // A custom Keys.onReturnPressed here stops QQC2's own accepted()
+            // signal from firing, so both call expandCursor() directly.
+            Keys.onReturnPressed: function(event) { root.expandCursor(); event.accepted = true }
+            Keys.onEnterPressed: function(event) { root.expandCursor(); event.accepted = true }
           }
-          Keys.onDownPressed: function(event) {
-            if (root.dex.expandedSlug) root.scrollDetail(1)
-            else root.moveCursor(1)
-            event.accepted = true
+
+          Text {
+            textFormat: Text.PlainText
+            width: parent.width
+            visible: root.dex.indexPhase === "loading"
+            text: "Loading index…"
+            wrapMode: Text.WordWrap
+            color: root.dim
+            font.family: root.family
+            font.pixelSize: Style.font.bodySmall
           }
-          Keys.onUpPressed: function(event) {
-            if (root.dex.expandedSlug) root.scrollDetail(-1)
-            else root.moveCursor(-1)
-            event.accepted = true
+
+          Text {
+            textFormat: Text.PlainText
+            width: parent.width
+            visible: !root.showRecents && root.dex.indexPhase === "ready"
+              && root.dex.query.length > 0 && root.dex.results.length === 0
+            text: "No matches."
+            wrapMode: Text.WordWrap
+            color: root.dim
+            font.family: root.family
+            font.pixelSize: Style.font.bodySmall
           }
-          // Unlike Up/Down, Left/Right have a real native meaning here
-          // (moving the text cursor), so only take over once something's
-          // expanded. Keys.onXxxPressed defaults event.accepted to true the
-          // moment a handler exists at all, even one that never touches it —
-          // simply not setting it here still silently blocks the field's
-          // own cursor movement, confirmed live. Must explicitly set it to
-          // false to actually let the event fall through to native handling.
-          Keys.onLeftPressed: function(event) {
-            if (root.dex.expandedSlug) { root.navigateEvolution(-1); event.accepted = true }
-            else event.accepted = false
+
+          Text {
+            textFormat: Text.PlainText
+            width: parent.width
+            visible: root.dex.indexPhase === "error"
+            text: "Couldn't reach PokeAPI. Check your connection."
+            wrapMode: Text.WordWrap
+            color: root.dim
+            font.family: root.family
+            font.pixelSize: Style.font.bodySmall
           }
-          Keys.onRightPressed: function(event) {
-            if (root.dex.expandedSlug) { root.navigateEvolution(1); event.accepted = true }
-            else event.accepted = false
+
+          Text {
+            textFormat: Text.PlainText
+            width: parent.width
+            visible: root.showFavorites && root.activeResults.length === 0
+            text: "No favorites yet. Open a Pokémon and tap the star to add one."
+            wrapMode: Text.WordWrap
+            color: root.dim
+            font.family: root.family
+            font.pixelSize: Style.font.bodySmall
           }
-          Keys.onEscapePressed: function(event) { root.handleEscape(); event.accepted = true }
-          // A custom Keys.onReturnPressed here stops QQC2's own accepted()
-          // signal from firing, so both call expandCursor() directly.
-          Keys.onReturnPressed: function(event) { root.expandCursor(); event.accepted = true }
-          Keys.onEnterPressed: function(event) { root.expandCursor(); event.accepted = true }
-        }
 
-        Text {
-          textFormat: Text.PlainText
-          width: parent.width
-          visible: root.dex.indexPhase === "loading"
-          text: "Loading index…"
-          wrapMode: Text.WordWrap
-          color: root.dim
-          font.family: root.family
-          font.pixelSize: Style.font.bodySmall
-        }
+          Text {
+            textFormat: Text.PlainText
+            width: parent.width
+            visible: root.showBrowseType && root.dex.browseTypePhase === "loading"
+            text: "Loading…"
+            color: root.dim
+            font.family: root.family
+            font.pixelSize: Style.font.bodySmall
+          }
 
-        Text {
-          textFormat: Text.PlainText
-          width: parent.width
-          visible: !root.showRecents && root.dex.indexPhase === "ready"
-            && root.dex.query.length > 0 && root.dex.results.length === 0
-          text: "No matches."
-          wrapMode: Text.WordWrap
-          color: root.dim
-          font.family: root.family
-          font.pixelSize: Style.font.bodySmall
-        }
+          Text {
+            textFormat: Text.PlainText
+            width: parent.width
+            visible: root.showBrowseType && root.dex.browseTypePhase === "error"
+            text: "Couldn't reach PokeAPI. Check your connection."
+            wrapMode: Text.WordWrap
+            color: root.dim
+            font.family: root.family
+            font.pixelSize: Style.font.bodySmall
+          }
 
-        Text {
-          textFormat: Text.PlainText
-          width: parent.width
-          visible: root.dex.indexPhase === "error"
-          text: "Couldn't reach PokeAPI. Check your connection."
-          wrapMode: Text.WordWrap
-          color: root.dim
-          font.family: root.family
-          font.pixelSize: Style.font.bodySmall
-        }
+          Text {
+            textFormat: Text.PlainText
+            width: parent.width
+            visible: root.showBrowseType && root.dex.browseTypePhase === "ready" && root.activeResults.length === 0
+            text: "No Pokémon found for this type."
+            wrapMode: Text.WordWrap
+            color: root.dim
+            font.family: root.family
+            font.pixelSize: Style.font.bodySmall
+          }
 
-        Text {
-          textFormat: Text.PlainText
-          width: parent.width
-          visible: root.showFavorites && root.activeResults.length === 0
-          text: "No favorites yet. Open a Pokémon and tap the star to add one."
-          wrapMode: Text.WordWrap
-          color: root.dim
-          font.family: root.family
-          font.pixelSize: Style.font.bodySmall
-        }
+          PanelSectionHeader {
+            width: parent.width
+            visible: root.showRecents && root.activeResults.length > 0
+            text: "RECENT"
+            foreground: root.fg
+            fontFamily: root.family
+          }
 
-        Text {
-          textFormat: Text.PlainText
-          width: parent.width
-          visible: root.showBrowseType && root.dex.browseTypePhase === "loading"
-          text: "Loading…"
-          color: root.dim
-          font.family: root.family
-          font.pixelSize: Style.font.bodySmall
-        }
+          PanelSectionHeader {
+            width: parent.width
+            visible: root.showFavorites
+            text: "FAVORITES"
+            foreground: root.fg
+            fontFamily: root.family
+          }
 
-        Text {
-          textFormat: Text.PlainText
-          width: parent.width
-          visible: root.showBrowseType && root.dex.browseTypePhase === "error"
-          text: "Couldn't reach PokeAPI. Check your connection."
-          wrapMode: Text.WordWrap
-          color: root.dim
-          font.family: root.family
-          font.pixelSize: Style.font.bodySmall
-        }
+          PanelSectionHeader {
+            width: parent.width
+            visible: root.showBrowseType && root.activeResults.length > 0
+            text: root.dex.browseType.toUpperCase() + " TYPE"
+            foreground: root.fg
+            fontFamily: root.family
+          }
 
-        Text {
-          textFormat: Text.PlainText
-          width: parent.width
-          visible: root.showBrowseType && root.dex.browseTypePhase === "ready" && root.activeResults.length === 0
-          text: "No Pokémon found for this type."
-          wrapMode: Text.WordWrap
-          color: root.dim
-          font.family: root.family
-          font.pixelSize: Style.font.bodySmall
-        }
+          ScrollView {
+            id: listScroller
+            visible: root.activeResults.length > 0
+            width: parent.width
+            implicitHeight: Math.min(rowsColumn.implicitHeight, Style.space(420))
+            clip: true
+            ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
-        PanelSectionHeader {
-          width: parent.width
-          visible: root.showRecents && root.activeResults.length > 0
-          text: "RECENT"
-          foreground: root.fg
-          fontFamily: root.family
-        }
+            Column {
+              id: rowsColumn
+              width: listScroller.availableWidth
+              spacing: Style.spacing.hairline
 
-        PanelSectionHeader {
-          width: parent.width
-          visible: root.showFavorites
-          text: "FAVORITES"
-          foreground: root.fg
-          fontFamily: root.family
-        }
+              Repeater {
+                id: resultRepeater
+                model: root.activeResults
+                delegate: ResultRow {
+                  // Required properties put this delegate in required-mode,
+                  // so index must be declared here or Qt stops injecting it.
+                  required property int index
+                  required property var modelData
 
-        PanelSectionHeader {
-          width: parent.width
-          visible: root.showBrowseType && root.activeResults.length > 0
-          text: root.dex.browseType.toUpperCase() + " TYPE"
-          foreground: root.fg
-          fontFamily: root.family
-        }
-
-        ScrollView {
-          id: listScroller
-          visible: root.activeResults.length > 0
-          width: parent.width
-          implicitHeight: Math.min(rowsColumn.implicitHeight, Style.space(420))
-          clip: true
-          ScrollBar.vertical.policy: ScrollBar.AsNeeded
-
-          Column {
-            id: rowsColumn
-            width: listScroller.availableWidth
-            spacing: Style.spacing.hairline
-
-            Repeater {
-              id: resultRepeater
-              model: root.activeResults
-              delegate: ResultRow {
-                // Required properties put this delegate in required-mode,
-                // so index must be declared here or Qt stops injecting it.
-                required property int index
-                required property var modelData
-
-                width: rowsColumn.width
-                dex: root.dex
-                bar: root.bar
-                entryName: modelData.name
-                entryLabel: modelData.label
-                entryNumber: modelData.number
-                entrySpriteId: modelData.spriteId
-                hasCursor: root.cursorActive && root.cursorIndex === index
-                expanded: root.dex.expandedSlug === modelData.name
-                onCursorRequested: {
-                  root.cursorActive = true
-                  root.cursorIndex = index
+                  width: rowsColumn.width
+                  dex: root.dex
+                  bar: root.bar
+                  entryName: modelData.name
+                  entryLabel: modelData.label
+                  entryNumber: modelData.number
+                  entrySpriteId: modelData.spriteId
+                  hasCursor: root.cursorActive && root.cursorIndex === index
+                  expanded: root.dex.expandedSlug === modelData.name
+                  onCursorRequested: {
+                    root.cursorActive = true
+                    root.cursorIndex = index
+                  }
+                  onExpandToggled: root.dex.selectPokemon(modelData.name)
+                  onEvolutionJumpRequested: function(name, label) { root.jumpTo(name, label) }
+                  onTypeActivated: function(typeName) { root.dex.startBrowseType(typeName) }
                 }
-                onExpandToggled: root.dex.selectPokemon(modelData.name)
-                onEvolutionJumpRequested: function(name, label) { root.jumpTo(name, label) }
-                onTypeActivated: function(typeName) { root.dex.startBrowseType(typeName) }
               }
             }
           }
+        }
+
+        SettingsView {
+          width: parent.width
+          visible: root.showSettings
+          dex: root.dex
+          bar: root.bar
         }
       }
     }
